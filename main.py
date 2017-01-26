@@ -1,7 +1,8 @@
+import sys, cv2
 from meanshift import segmentImage
 
 if __name__ == "__main__":
-	if (len(sys.argv) != 6):
+	if (len(sys.argv) != 7):
 		raise Exception("Invalid number of params")
 
 	bgImg_Path = sys.argv[1]
@@ -9,6 +10,7 @@ if __name__ == "__main__":
 	spatial_rad = int(sys.argv[3])
 	range_rad = int(sys.argv[4])
 	density = int(sys.argv[5])
+	deltaEThresh = int(sys.argv[6])
 
 	bgImg = cv2.imread(bgImg_Path)
 	humImg = cv2.imread(humImg_Path)
@@ -19,8 +21,8 @@ if __name__ == "__main__":
 	bgImg = cv2.resize(bgImg, dimension, interpolation = cv2.INTER_AREA)
 	humImg = cv2.resize(humImg, dimension, interpolation = cv2.INTER_AREA)
 
-	(cluster_human, cluster_background, seg_human) = 
-		segmentImage(bgImg, humImg, spatial_rad, range_rad, density)
+	(cluster_human, cluster_background, seg_human) = \
+		segmentImage(bgImg, humImg, spatial_rad, range_rad, density, deltaEThresh)
 
 	# save results
 	cv2.imwrite("result/cluster_human.jpg", cluster_human)
