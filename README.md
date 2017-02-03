@@ -1,4 +1,4 @@
-This script uses the [pymeanshift](https://github.com/fjean/pymeanshift) library which implements the mean shift algorithm described by the paper [Mean shift: a robust approach toward feature space analysis](http://ieeexplore.ieee.org/document/1000236/). 
+This script uses the [pymeanshift](https://github.com/fjean/pymeanshift) library which implements the mean shift algorithm described by the paper [Mean shift: a robust approach toward feature space analysis](http://ieeexplore.ieee.org/document/1000236/), in conjunction with thresholding to obtain a silhouette of a human given two images.
 
 **Requirements**
 
@@ -6,28 +6,58 @@ This script uses the [pymeanshift](https://github.com/fjean/pymeanshift) library
 - One image of the background with the human subject
 - Both images should be taken on the same plane, ideally with a tripod for proper alignment
 
-<img src="example/1_bg.jpg" width="250"/> <img src="example/1_alec.jpg" width="250"/> 
+<img src="test/3_bg.jpg" width="250"/> <img src="test/3_alec.jpg" width="250"/> 
 
 **Algorithm**
 
 - Perform mean shift to obtain clusters in both the background and human image
-- Clusters in segmented image have average hue of the original pixels that comprised the cluster
-- Convert segmented image into LAB colour space
-- Compare background and human pixels sequentially - if deltaE measurement exceeds 
-
+	- Clusters in segmented image have average hue of the original pixels that comprised the cluster
+- Convert segmented and normal images into LAB colour space
+- Perform two separate thresholding operations
+	- Thresholding the two segmented images produced by mean shift
+	- Thresholding the two original images 
+- OR the two results together
+- Generate a binary mask and overlay contours on original image
 
 **Results**
 
-<img src="example/1_alec.jpg" width="250"/> <img src="result/alec_bar/result.jpg" width="250"/> 
+<img src="test/1_alec.jpg" width="150"/> <img src="result/1_alec/meanshift.jpg" width="150"/> <img src="result/1_alec/thresh.jpg" width="150"/> <img src="result/1_alec/result.jpg" width="150"/> <img src="result/1_alec/overlay.jpg" width="150"/> 
 
-- Black bar outline still present: two pictures may not align exactly, shifted vertically by a pixel or two
-- Green area in between legs recognized as a darker coloured cluster then the rest of the green background, hence why it isn't segmented
+- Shadowing causes segmentation to miss parts by the R leg
+- Small area by the R armpit is missed -> clustering incorrectly joined the shirt with that small region
 
+<img src="test/2_alec.jpg" width="150"/> <img src="result/2_alec/meanshift.jpg" width="150"/> <img src="result/2_alec/thresh.jpg" width="150"/> <img src="result/2_alec/result.jpg" width="150"/> <img src="result/2_alec/overlay.jpg" width="150"/> 
 
-<img src="example/1_oliver.jpg" width="250"/> <img src="result/oliver_bar/result.jpg" width="250"/> 
+- Bits of the R thumb oversegmented, most likely due to shadowing
+- Black bar not fully segmented -> specific body pose casted shadow that was too dark to segment properly
 
-- Same issues as above
-- Parts of the feet and shoes are over segmented: small white regions aren't being recognized as their own cluster. Minimizing the density parameter helps with this, but then we obtain too many clusters and cannot properly segment the rest of the image
+<img src="test/2_alec_wide.jpg" width="150"/> <img src="result/2_alec_wide/meanshift.jpg" width="150"/> <img src="result/2_alec_wide/thresh.jpg" width="150"/> <img src="result/2_alec_wide/result.jpg" width="150"/> <img src="result/2_alec_wide/overlay.jpg" width="150"/> 
+
+- Thresholding could not fully get area by right lef
+- Shadowing made region too dark to segment
+
+<img src="test/3_alec.jpg" width="150"/> <img src="result/3_alec/meanshift.jpg" width="150"/> <img src="result/3_alec/thresh.jpg" width="150"/> <img src="result/3_alec/result.jpg" width="150"/> <img src="result/3_alec/overlay.jpg" width="150"/> 
+
+- Thresholding at region by legs caused oversegmentation -> Similarity in colour between darkened shadowed leg and the floor
+
+<img src="test/3_oliver.jpg" width="150"/> <img src="result/3_oliver/meanshift.jpg" width="150"/> <img src="result/3_oliver/thresh.jpg" width="150"/> <img src="result/3_oliver/result.jpg" width="150"/> <img src="result/3_oliver/overlay.jpg" width="150"/> 
+
+- Shadowed region between legs differs too much to be handled by either method
+- White colour socks and regions of shoe proved to be too similar to the background, causing oversegmentation
+- Not all of the baseboard could se segmented, due to translation variance
+
+**Analysis**
+
+Basic Thresholding
+- PROS: Very fast. In ideal scenarios where lighting is almost exact with minimal shadows, majority of segmentation can be achieved. 
+- CONS: Suffers greatly from translation variance, requiring alignment of images. Suffers greatly from regions of similar colour between two images, causing oversegmentation (i.e. baseboard and legs)
+
+Mean-shift Thresholding
+- PROS: Less prone to oversegmentation due to knowledge of clusters and their spatial regions. Using the average colour of each cluster makes it slightly more robust to colour similarities. Can handle slightly more complicated backgrounds (i.e. patterened floor) due to its clustering nature.
+- CONS: Much slower than a straight subtraction. Clusters can suffer from regions of shadowing where the average hue is much darker than it would be originally, since the cluster only looks at a small segment of the big picture. Requires fine tuning of parameters, which would be hard to do automatically
+
+Thresholding + Mean-shift
+- Using the two addresses issue of mean-shift thresholding finding smaller clusters that are hard to segment. Mean-shift has a tendency to undersegment, while thresholding has a tendency to oversegment. By fine tuning parameters so basic thresholding is done to a degree right before oversegmentation, and mean-shift thresholding is done to the best of its capabilities, and OR'ing the two results gives decent results.
 
 
 **Tuning mean-shift parameters**
@@ -51,12 +81,9 @@ Density: how many pixels comprise of a cluster.
 
 **Tuning segmentation parameters** 
 
-Hue Threshold: acceptable difference in average colours between two clusters
+clusterThresh: Delta E LAB tolerence for mean shift thresholding
 
-- Small enough to differentiate between similar but different clusters, but large enough to picture-to-picture differences (e.g. caused by lighting, shadows)
-
-
-Delta E Threshold: acceptable difference between LAB pixels to be considered the same
+labThresh: Delta E LAB tolerence for basic thresholding
 
 
 **Limitations**
@@ -68,4 +95,4 @@ Delta E Threshold: acceptable difference between LAB pixels to be considered the
 
 **Example Usage**
 
-`python meanshift.py background.jpg human.jpg 5 13 200 15`
+`python meanshift.py background.jpg human.jpg 5 13 200 15 15`
